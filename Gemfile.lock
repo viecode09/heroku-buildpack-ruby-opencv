@@ -6,7 +6,7 @@ GIT
     git (1.2.6)
 
 GEM
-  remote: https://rubygems.org/
+  remote: http://rubygems.org/
   specs:
     activesupport (4.0.3)
       i18n (~> 0.6, >= 0.6.4)
