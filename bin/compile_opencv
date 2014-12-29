@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# bin/compile_opencv <build-dir> <cache-dir>
+
+# fail fast
+set -e
+
+indent() {
+  sed -u 's/^/       /'
+}
+
+build=$1
+cache=$2
+
+mkdir -p $build
+mkdir -p $cache
+
+cmake_version="2.8.12.2"
+cmake_url="http://www.cmake.org/files/v2.8/cmake-${cmake_version}.tar.gz"
+cmake_file="cmake-${cmake_version}.tar.gz"
+cmake_tar_dir="cmake-${cmake_version}"
+
+opencv_version="2.4.9"
+opencv_dir="opencv-${opencv_version}"
+opencv_file="${opencv_dir}.tar.gz"
+opencv_url="https://codeload.github.com/Itseez/opencv/tar.gz/${opencv_version}"
+
+cache_target=${cache}/${cmake_file}
+build_target=${build}/.heroku
+target=/app/.heroku
+
+indent() {
+  RE="s/^/       /"
+  [ $(uname) == "Darwin" ] && sed -l "$RE" || sed -u "$RE"
+}
+
+if [ ! -f ${cache_target} ]; then
+  echo "No cached compile detected. Building..." | indent
+  cd $build
+
+  echo "Compiling cmake v${cmake_version}..." | indent
+
+  curl -s ${cmake_url} > ${cmake_file}
+  tar zxf ${cmake_file}
+  cd ${cmake_tar_dir}
+  ./bootstrap --prefix=${target} | indent
+  make | indent
+  make install | indent
+  cd ..
+
+  tar czf ${cache_target} -C ${target} .
+fi
+
+mkdir -p $build_target
+tar xzf $cache_target -C $build_target
+PATH=$build_target/bin:$PATH
+
+cache_target=$cache/$opencv_file
+build_target=$build/.heroku
+
+if [ ! -f $cache_target ]; then
+  opencv_package="https://s3.amazonaws.com/bloominga-public/heroku/vulcan-compiled-opencv.tgz"
+  # download open cv
+  vendored_opencv="/app/vendor/opencv"
+  mkdir -p $vendored_opencv
+  curl $opencv_package -s -o - | tar xzf - -C $vendored_opencv
+
+  # copy open cv libs to build dir
+  mkdir -p $build/lib
+  cp -a "$vendored_opencv/lib/." "$build/lib/"
+
+  tar czf $cache_target -C $vendored_opencv .
+fi
+
+mkdir -p $build_target
+tar xzf $cache_target -C $build_target
+
+mkdir -p $build/.profile.d
+
+ls -la $build/*
+ls -la $target/*
+
+echo "export PATH=\$target/bin:\$PATH" > $build/.profile.d/opencv.sh
