@@ -1,4 +1,4 @@
-source :rubygems
+source "http://rubygems.org"
 
 group :development, :test do
   gem "heroku_hatchet"
